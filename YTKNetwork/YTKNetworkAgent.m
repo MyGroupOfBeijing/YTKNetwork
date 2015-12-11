@@ -28,7 +28,6 @@
 
 @implementation YTKNetworkAgent {
     AFHTTPRequestOperationManager *_manager;
-    YTKNetworkConfig *_config;
     NSMutableDictionary *_requestsRecord;
 }
 
@@ -44,10 +43,25 @@
 - (id)init {
     self = [super init];
     if (self) {
-        _config = [YTKNetworkConfig sharedInstance];
         _manager = [AFHTTPRequestOperationManager manager];
         _requestsRecord = [NSMutableDictionary dictionary];
         _manager.operationQueue.maxConcurrentOperationCount = 4;
+        [_manager.securityPolicy setAllowInvalidCertificates: YES];
+        NSMutableSet *cotentTypes =
+        [NSMutableSet setWithObjects:
+         @"text/plain",
+         @"text/html",
+         @"image/jpeg",
+         @"image/png",
+         @"image/gif",
+         @"image/jgp",
+         @"image/bmp",
+         @"multipart/form-data",
+         @"application/json;charset=UTF-8",
+         @"application/octet-stream",
+         nil];
+        [cotentTypes unionSet: _manager.responseSerializer.acceptableContentTypes];
+        _manager.responseSerializer.acceptableContentTypes = cotentTypes;
     }
     return self;
 }
@@ -58,23 +72,23 @@
         return detailUrl;
     }
     // filter url
-    NSArray *filters = [_config urlFilters];
+    NSArray *filters = [(YTKNetworkConfig*)[[request networkConfigClass] sharedInstance] urlFilters];
     for (id<YTKUrlFilterProtocol> f in filters) {
         detailUrl = [f filterUrl:detailUrl withRequest:request];
     }
-
+    
     NSString *baseUrl;
     if ([request useCDN]) {
         if ([request cdnUrl].length > 0) {
             baseUrl = [request cdnUrl];
         } else {
-            baseUrl = [_config cdnUrl];
+            baseUrl = [(YTKNetworkConfig*)[[request networkConfigClass] sharedInstance] cdnUrl];
         }
     } else {
         if ([request baseUrl].length > 0) {
             baseUrl = [request baseUrl];
         } else {
-            baseUrl = [_config baseUrl];
+            baseUrl = [(YTKNetworkConfig*)[[request networkConfigClass] sharedInstance] baseUrl];
         }
     }
     return [NSString stringWithFormat:@"%@%@", baseUrl, detailUrl];
@@ -85,7 +99,7 @@
     NSString *url = [self buildRequestUrl:request];
     id param = request.requestArgument;
     AFConstructingBlock constructingBlock = [request constructingBodyBlock];
-
+    
     if (request.requestSerializerType == YTKRequestSerializerTypeHTTP) {
         _manager.requestSerializer = [AFHTTPRequestSerializer serializer];
     } else if (request.requestSerializerType == YTKRequestSerializerTypeJSON) {
@@ -93,7 +107,7 @@
     }
     
     _manager.requestSerializer.timeoutInterval = [request requestTimeoutInterval];
-
+    
     // if api need server username and password
     NSArray *authorizationHeaderFieldArray = [request requestAuthorizationHeaderFieldArray];
     if (authorizationHeaderFieldArray != nil) {
@@ -113,7 +127,7 @@
             }
         }
     }
-
+    
     // if api build custom url request
     NSURLRequest *customUrlRequest= [request buildCustomUrlRequest];
     if (customUrlRequest) {
@@ -131,7 +145,7 @@
             if (request.resumableDownloadPath) {
                 // add parameters to URL;
                 NSString *filteredUrl = [YTKNetworkPrivate urlStringWithOriginUrlString:url appendParameters:param];
-
+                
                 NSURLRequest *requestUrl = [NSURLRequest requestWithURL:[NSURL URLWithString:filteredUrl]];
                 AFDownloadRequestOperation *operation = [[AFDownloadRequestOperation alloc] initWithRequest:requestUrl
                                                                                                  targetPath:request.resumableDownloadPath shouldResume:YES];
@@ -156,8 +170,8 @@
                                                   success:^(AFHTTPRequestOperation *operation, id responseObject) {
                                                       [self handleRequestResult:operation];
                                                   } failure:^(AFHTTPRequestOperation *operation, NSError *error) {
-                            [self handleRequestResult:operation];
-                        }];
+                                                      [self handleRequestResult:operation];
+                                                  }];
             } else {
                 request.requestOperation = [_manager POST:url parameters:param success:^(AFHTTPRequestOperation *operation, id responseObject) {
                     [self handleRequestResult:operation];
@@ -194,7 +208,7 @@
             return;
         }
     }
-
+    
     YTKLog(@"Add request: %@", NSStringFromClass([request class]));
     [self addOperation:request];
 }
@@ -244,7 +258,7 @@
             [request toggleAccessoriesDidStopCallBack];
         } else {
             YTKLog(@"Request %@ failed, status code = %ld",
-                     NSStringFromClass([request class]), (long)request.responseStatusCode);
+                   NSStringFromClass([request class]), (long)request.responseStatusCode);
             [request toggleAccessoriesWillStopCallBack];
             [request requestFailedFilter];
             if (request.delegate != nil) {

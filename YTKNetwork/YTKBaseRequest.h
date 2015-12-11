@@ -173,4 +173,7 @@ typedef void (^AFDownloadProgressBlock)(AFDownloadRequestOperation *operation, N
 /// 当需要断点续传时，获得下载进度的回调
 - (AFDownloadProgressBlock)resumableDownloadProgressBlock;
 
+
+/// 该请求的网络配置类（因为会存在第三方的接口） ，默认：YTKNetworkConfig，自定义请继承自YTKNetworkConfig
+- (Class)networkConfigClass;
 @end

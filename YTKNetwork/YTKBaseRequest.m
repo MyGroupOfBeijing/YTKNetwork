@@ -24,7 +24,7 @@
 #import "YTKBaseRequest.h"
 #import "YTKNetworkAgent.h"
 #import "YTKNetworkPrivate.h"
-
+#import "YTKNetworkConfig.h"
 @implementation YTKBaseRequest
 
 /// for subclasses to overwrite
@@ -159,6 +159,9 @@
     return self.requestOperation.response.allHeaderFields;
 }
 
+-(Class)networkConfigClass{
+    return [YTKNetworkConfig class];
+}
 #pragma mark - Request Accessoies
 
 - (void)addAccessory:(id<YTKRequestAccessory>)accessory {
